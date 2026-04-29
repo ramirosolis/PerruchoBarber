@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>PerruchoBarber</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #111; color: #fff; }
+    header { background: #000; padding: 20px; text-align: center; position: relative; }
+    header img { width: 80px; height: 80px; object-fit: cover; border-radius: 50%; display:block; margin: 0 auto 10px; }
+    h1 { margin: 0; }
+    .container { padding: 20px; }
+    .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    .gallery img { width: 100%; border-radius: 10px; }
+    form { margin-top: 30px; background: #222; padding: 20px; border-radius: 10px; }
+    input, textarea, select, button {
+      width: 100%; margin: 10px 0; padding: 10px; border-radius: 5px; border: none;
+    }
+    button { background: #00c853; color: white; cursor: pointer; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+<header>
+  <!-- LOGO DINÁMICO -->
+  <img id="logoPreview" src="" alt="Logo Barbería">
+  <input type="file" id="logoUpload" accept="image/*">
+
+  <h1>PerruchoBarber</h1>
+  <p>Reservá tu turno y mirá nuestros cortes</p>
+</header>
+
+<div class="container">
+
+  <h2>Galería de cortes</h2>
+  <div class="gallery" id="gallery"></div>
+
+  <input type="file" id="upload" accept="image/*">
+
+  <h2>Reservar turno</h2>
+  <form id="bookingForm">
+    <input type="text" id="nombre" placeholder="Nombre" required>
+    <input type="tel" id="telefono" placeholder="Teléfono" required>
+    <input type="date" id="fecha" required>
+
+    <select id="hora" required>
+      <option value="">Elegir horario</option>
+      <option>09:00</option>
+      <option>10:00</option>
+      <option>11:00</option>
+      <option>12:00</option>
+      <option>16:00</option>
+      <option>17:00</option>
+      <option>18:00</option>
+      <option>19:00</option>
+    </select>
+
+    <textarea id="corte" placeholder="Qué corte querés"></textarea>
+    <button type="submit">Pedir turno por WhatsApp</button>
+  </form>
+
+</div>
+
+<script>
+  // GALERÍA
+  const upload = document.getElementById('upload');
+  const gallery = document.getElementById('gallery');
+
+  upload.addEventListener('change', function() {
+    const file = this.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        gallery.appendChild(img);
+      }
+      reader.readAsDataURL(file);
+    }
+  });
+
+  // LOGO
+  const logoUpload = document.getElementById('logoUpload');
+  const logoPreview = document.getElementById('logoPreview');
+
+  logoUpload.addEventListener('change', function() {
+    const file = this.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        logoPreview.src = e.target.result;
+      }
+      reader.readAsDataURL(file);
+    }
+  });
+
+  // WHATSAPP
+  document.getElementById('bookingForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const nombre = document.getElementById('nombre').value;
+    const telefono = document.getElementById('telefono').value;
+    const fecha = document.getElementById('fecha').value;
+    const hora = document.getElementById('hora').value;
+    const corte = document.getElementById('corte').value;
+
+    const mensaje = `Hola! Quiero reservar turno:\n\nNombre: ${nombre}\nTel: ${telefono}\nFecha: ${fecha}\nHora: ${hora}\nCorte: ${corte}`;
+
+    // ✅ FORMATO CORRECTO ARGENTINA: 549 + código + número (sin + ni espacios)
+    const numero = "5493442585692";
+
+    // 🔥 LINK COMPATIBLE CON TODOS LOS NAVEGADORES
+    const url = `https://api.whatsapp.com/send?phone=${numero}&text=${encodeURIComponent(mensaje)}`;
+
+    // 🔥 REDIRECCIÓN DIRECTA (evita bloqueos del navegador)
+    window.location.href = url;
+  });
+</script>
+
+</body>
+</html>
