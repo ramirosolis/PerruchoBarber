@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PerruchoBarber - Turnos</title>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#111; color:#fff; margin:0; text-align: center; }
+    header { padding:30px 20px; background:#000; border-bottom: 2px solid #333; }
+    
+    .logo-container img { 
+      width: 140px; 
+      height: 140px; 
+      object-fit: cover; 
+      border-radius: 50%; 
+      border: 4px solid #fff;
+      box-shadow: 0px 4px 15px rgba(255,255,255,0.2);
+    }
+
+    .container { max-width:500px; margin:auto; padding:20px; text-align: left; }
+    h2 { text-align: center; color: #fff; text-transform: uppercase; letter-spacing: 1px; }
+    
+    /* BOTONES DE SERVICIOS BLANCOS */
+    .services button { 
+      width:100%; 
+      padding:18px; 
+      margin:12px 0; 
+      border:none; 
+      border-radius:12px; 
+      background:#fff; 
+      color:#000; 
+      font-weight: 800;
+      font-size: 17px;
+      cursor: pointer;
+      transition: 0.3s;
+      box-shadow: 0px 4px 10px rgba(0,0,0,0.3);
+    }
+    .services button:hover { background: #e0e0e0; transform: scale(1.02); }
+    
+    form { display:none; background:#1a1a1a; padding:25px; border-radius:15px; margin-top: 20px; border: 1px solid #333; }
+    label { display: block; margin-top: 15px; font-size: 14px; color: #aaa; }
+    input, select { width:100%; margin:8px 0; padding:12px; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; box-sizing: border-box; }
+    
+    /* BOTÓN DE RESERVA */
+    .btn-reservar {
+      width: 100%;
+      background: #fff;
+      color: #000;
+      padding: 15px;
+      margin-top: 20px;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .admin-btn { background: none; color: #555; border: none; margin-top: 40px; cursor: pointer; width: 100%; text-decoration: underline; }
+    .admin { display:none; background:#222; padding:15px; margin-top:20px; border-radius: 10px; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-container">
+    <img src="barberia.jpg" alt="PerruchoBarber">
+  </div>
+  <h1 style="margin:10px 0 0 0;">PerruchoBarber</h1>
+</header>
+
+<div class="container">
+  <h2>Elegí un servicio</h2>
+  <div class="services">
+    <button onclick="selectService('Corte Clásico - $7000')">Corte Clásico - $7000</button>
+    <button onclick="selectService('Perfilado de Ceja - $1000')">Perfilado de Ceja - $1000</button>
+  </div>
+
+  <form id="form">
+    <h3 id="servicio-texto" style="color: #fff; margin-top: 0; text-align: center; border-bottom: 1px solid #333; padding-bottom: 10px;"></h3>
+    
+    <label>Tu Nombre completo:</label>
+    <input id="nombre" placeholder="Ej: Pedro Gómez" required>
+    
+    <label>¿Qué día venís?:</label>
+    <input type="date" id="fecha" required>
+    
+    <label>Horarios disponibles:</label>
+    <select id="hora" required>
+      <option value="">Selecciona una fecha primero</option>
+    </select>
+    
+    <button type="submit" class="btn-reservar">CONFIRMAR Y AVISAR POR WHATSAPP</button>
+  </form>
+
+  <button class="admin-btn" onclick="toggleAdmin()">Acceso Administrador</button>
+  <div class="admin" id="admin"></div>
+</div>
+
+<script>
+// CONFIGURACIÓN DE TU AMIGO (Ya integrada)
+const firebaseConfig = {
+  apiKey: "AIzaSyAjtO7kcULy3SDNX2TPUQ0tp3EsYyiRqL8",
+  authDomain: "perruchobarber.firebaseapp.com",
+  projectId: "perruchobarber",
+  storageBucket: "perruchobarber.firebasestorage.app",
+  messagingSenderId: "160903006692",
+  appId: "1:160903006692:web:9b68b07386a457f4d31ff1",
+  measurementId: "G-1PZ8H1H7R6"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+let servicioElegido = "";
+
+function selectService(s) {
+  servicioElegido = s;
+  document.getElementById('servicio-texto').innerText = s;
+  document.getElementById('form').style.display = 'block';
+  document.getElementById('form').scrollIntoView({ behavior: 'smooth' });
+}
+
+const fechaInput = document.getElementById('fecha');
+const horaSelect = document.getElementById('hora');
+
+// LÓGICA ANTI-DUPLICADOS
+fechaInput.addEventListener('change', async function() {
+  const fecha = this.value;
+  const date = new Date(fecha);
+  const dia = date.getUTCDay(); 
+
+  // Definimos horarios: Lun-Vie (13-18hs) y Sáb (9-18hs)
+  let horariosDisponibles = (dia>=1 && dia<=5)
+    ? ['13:00','14:00','15:00','16:00','17:00','18:00']
+    : ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
+
+  // Consultamos a Firebase qué horas YA están ocupadas ese día
+  const snapshot = await db.collection("turnos").where("fecha","==",fecha).get();
+  const ocupados = snapshot.docs.map(d=>d.data().hora);
+
+  horaSelect.innerHTML = '<option value="">Elegí una hora</option>';
+
+  horariosDisponibles.forEach(h=>{
+    if(!ocupados.includes(h)){
+      let op = document.createElement('option');
+      op.text = h;
+      op.value = h;
+      horaSelect.add(op);
+    }
+  });
+});
+
+// ENVÍO DE DATOS Y WHATSAPP
+document.getElementById('form').addEventListener('submit', async e=>{
+  e.preventDefault();
+
+  const nombre = document.getElementById('nombre').value;
+  const fecha = document.getElementById('fecha').value;
+  const hora = document.getElementById('hora').value;
+
+  const turno = { nombre, fecha, hora, servicio: servicioElegido };
+
+  try {
+    await db.collection("turnos").add(turno);
+
+    const miTelefono = "5493442585692"; 
+    const textoMensaje = `*¡Hola PerruchoBarber!*%0A%0A` +
+                         `Acabo de agendar un turno:%0A` +
+                         `*Nombre:* ${nombre}%0A` +
+                         `*Servicio:* ${servicioElegido}%0A` +
+                         `*Fecha:* ${fecha}%0A` +
+                         `*Hora:* ${hora}hs`;
+    
+    const urlWhatsapp = `https://api.whatsapp.com/send?phone=${miTelefono}&text=${textoMensaje}`;
+
+    alert("¡Turno guardado! Presioná OK para enviar el aviso por WhatsApp.");
+    window.location.href = urlWhatsapp;
+    
+  } catch (error) {
+    alert("Error al conectar con la base de datos.");
+  }
+});
+
+async function toggleAdmin(){
+  const panel = document.getElementById('admin');
+  panel.style.display = panel.style.display==='block'?'none':'block';
+  const snapshot = await db.collection("turnos").orderBy("fecha").get();
+  panel.innerHTML = '<h3>Turnos Registrados:</h3>';
+  snapshot.forEach(doc=>{
+    const t = doc.data();
+    panel.innerHTML += `<p style="border-bottom:1px solid #333; padding:5px;">${t.fecha} ${t.hora} - ${t.nombre}</p>`;
+  });
+}
+</script>
+</body>
+</html>
